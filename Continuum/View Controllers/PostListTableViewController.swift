@@ -10,32 +10,63 @@ import UIKit
 
 class PostListTableViewController: UITableViewController {
 
+    var isSearching = false
+    var resultsArray: [Post] = []
+    var dataSource: [Post]{
+        if isSearching{
+            return resultsArray
+        } else {
+            return PostController.shared.posts
+        }
+    }
+    //Outlets
+    @IBOutlet weak var searchBar: UISearchBar!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        // Uncomment the following line to preserve selection between presentations
-        // self.clearsSelectionOnViewWillAppear = false
-
-        // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
-        // self.navigationItem.rightBarButtonItem = self.editButtonItem
+        fullSync { (_) in
+            DispatchQueue.main.async {
+                print("done fetching")
+                self.tableView.reloadData()
+            }
+        }
+        searchBar.delegate = self
+    }
+    
+    func fullSync(completion: @escaping ([Post]?) -> Void){
+        print("starting fetch")
+        PostController.shared.fetchPosts { (posts) in
+            guard let posts = posts else {print("couldnt unrwrap"); return}
+            PostController.shared.posts = posts
+            print("starting comment fetches")
+            for post in posts{
+                print("trying to fetch some comments...")
+                PostController.shared.fetchComments(forPost: post, completion: { (_) in
+                    print("got a comment")
+                })
+            }
+            completion(posts)
+        }
     }
 
     // MARK: - Table view data source
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // #warning Incomplete implementation, return the number of rows
-        return PostController.shared.posts.count
+        return dataSource.count
     }
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
+        resultsArray = PostController.shared.posts
         tableView.reloadData()
     }
 
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: "postCell", for: indexPath) as? PostTableViewCell else {return UITableViewCell()}
-
-        let post = PostController.shared.posts[indexPath.row]
+        
+        
+        let post = dataSource[indexPath.row]
         cell.postImageView.image = post.image
         cell.postCaptionLabel.text = post.caption
         cell.postCommentsLabel.text = "Comments: \(post.comments.count)"
@@ -72,8 +103,33 @@ class PostListTableViewController: UITableViewController {
         if segue.identifier == "toPostDetail"{
             guard let destinVC = segue.destination as? PostDetailTableViewController else {return}
             guard let index = tableView.indexPathForSelectedRow else {return}
-            let passPost = PostController.shared.posts[index.row]
+            
+            let passPost = dataSource[index.row]
             destinVC.post = passPost
+            
         }
+    }
+}
+
+extension PostListTableViewController: UISearchBarDelegate{
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        guard let searchTerm = searchBar.text, searchTerm != "" else {return}
+        resultsArray = []
+        for post in PostController.shared.posts{
+            if post.matchesSearchTerm(searchTerm: searchTerm){
+                resultsArray.append(post)
+            }
+        }
+        isSearching = true
+        tableView.reloadData()
+    }
+    
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.text = ""
+        searchBar.resignFirstResponder()
+        isSearching = false
+        resultsArray = PostController.shared.posts
+        tableView.reloadData()
     }
 }

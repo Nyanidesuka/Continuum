@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CloudKit
 
 class PostDetailTableViewController: UITableViewController {
     
@@ -42,6 +43,12 @@ class PostDetailTableViewController: UITableViewController {
             guard let pagePost = self.post else {return} //return if the detail view doesnt have a post.
             let newComment = Comment(text: postText, post: pagePost)
             pagePost.comments.append(newComment)
+            let commentRecord = CKRecord(comment: newComment)
+            PostController.shared.publicDB.save(commentRecord, completionHandler: { (record, error) in
+                if let error = error{
+                    print("there was an error saving the comment. \(error.localizedDescription)")
+                }
+            })
             DispatchQueue.main.async {
                 self.updateViews()
             }
@@ -54,15 +61,27 @@ class PostDetailTableViewController: UITableViewController {
         self.present(commentAlert, animated: true) //this line shows the alert we just built.
     }
     @IBAction func shareButtonTapped(_ sender: UIButton) {
+        //unwrap a new image an caption variable just to make it easier to work with
+        guard let image = post?.image, let caption = post?.caption else {return}
+        //we make a new view controller, which is a UIActivityViewController.
+        //Those are the kind you see when you hit share on twitter, or other similar things. Lets you forward, save images, etc.
+        //we have to expose items from this VC to the new one so it can share them. We expose the post's image and caption.
+        //The activties is left nil. I dont understand that part yet, but it works so far.
+        let activityVC = UIActivityViewController(activityItems: [image, caption], applicationActivities: [])
+        //then we show it.
+        self.present(activityVC, animated: true) {
+            //stuff
+        }
     }
     @IBAction func followButtonTapped(_ sender: UIButton) {
+        
     }
     
     func updateViews(){
         DispatchQueue.main.async {
-            guard let post = self.post else {return}
+            guard let post = self.post else {print("missing thing"); return}
             self.postImageView.image = post.image
-            self.captionLabel.text = post.caption
+            self.captionLabel.text = "Caption: \(post.caption)"
             self.tableView.reloadData()
         }
     }

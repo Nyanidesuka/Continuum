@@ -7,15 +7,33 @@
 //
 
 import UIKit
+import CloudKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
   var window: UIWindow?
 
+    func isUserSignedIn(completion: @escaping (Bool) -> Void){
+        CKContainer.default().accountStatus(completionHandler: { (status, error) in
+            if let error = error{
+                print("There was an error checking the user's account status. \(error.localizedDescription)")
+            }
+            switch status{
+            case .available:
+                completion(true)
+            default:
+                completion(false)
+                //change this later to be more descriptive.
+                print("The user is not signed in.")
+            }
+        })
+    }
 
   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    // Override point for customization after application launch.
+    isUserSignedIn { (isSignedIn) in
+        //
+    }
     return true
   }
 
